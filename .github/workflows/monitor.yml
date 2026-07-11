@@ -2,36 +2,44 @@ name: hixon.ru Uptime Monitor
 
 on:
   schedule:
-    # Checks your blog every hour on the hour
     - cron: '0 * * * *'
-  workflow_dispatch: # Allows you to manually click "Run workflow" to test it
+  workflow_dispatch:
 
 jobs:
   uptime-check:
     runs-on: ubuntu-latest
+    # Hard stop for the entire job after 3 minutes. 
+    # Prevents stuck runners from wasting your free GitHub Action minutes.
+    timeout-minutes: 3
+    
     steps:
       - name: Check Website Response and Core Element
         run: |
+          set -euo pipefail
+
           URL="https://hixon.ru/"
-          # Single quotes protect the inner double quotes from breaking bash variables
           EXPECTED_STRING='<h1 class="blog-title">Блог hixon'
 
           echo "Pinging $URL..."
           
-          # -s (silent), -L (follow redirects), -A (custom user-agent to avoid firewall blocks)
-          RESPONSE=$(curl -A "GitHubActions-MonitorBot" -s -L -o response.html -w "%{http_code}" "$URL")
+          # --connect-timeout 5: Fails if it takes > 5s to establish the TCP connection
+          # --max-time 15: Fails if the whole operation (transfer included) takes > 15s
+          RESPONSE=$(curl -A "GitHubActions-MonitorBot" \
+            --connect-timeout 5 \
+            --max-time 15 \
+            -s -L -o response.html -w "%{http_code}" "$URL")
           
           echo "HTTP Response Code: $RESPONSE"
 
-          # Step 1: Check for HTTP 200
           if [ "$RESPONSE" -ne 200 ]; then
             echo "::error::Site down! Expected HTTP 200, got $RESPONSE"
             exit 1
           fi
 
-          # Step 2: Check for the exact h1 block element
-          # -F treats the pattern as a fixed string rather than a regular expression
-          if ! grep -Fq "$EXPECTED_STRING" response.html; then
+          # Safe evaluation with set -e
+          grep -Fq "$EXPECTED_STRING" response.html && FOUND=0 || FOUND=$?
+
+          if [ "$FOUND" -ne 0 ]; then
             echo "::error::Content mismatch! Could not find the expected blog title header."
             exit 1
           fi
