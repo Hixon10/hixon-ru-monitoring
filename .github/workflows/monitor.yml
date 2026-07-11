@@ -18,7 +18,7 @@ jobs:
           set -euo pipefail
 
           URL="https://hixon.ru/"
-          EXPECTED_STRING='<h1 class="blog-title">Блог hixon'
+          EXPECTED_STRING='<h11 class="blog-title">Блог hixon'
 
           echo "Pinging $URL..."
           
