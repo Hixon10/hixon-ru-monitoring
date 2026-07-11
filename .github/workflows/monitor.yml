@@ -1,0 +1,39 @@
+name: hixon.ru Uptime Monitor
+
+on:
+  schedule:
+    # Checks your blog every hour on the hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allows you to manually click "Run workflow" to test it
+
+jobs:
+  uptime-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Website Response and Core Element
+        run: |
+          URL="https://hixon.ru/"
+          # Single quotes protect the inner double quotes from breaking bash variables
+          EXPECTED_STRING='<h1 class="blog-title">Блог hixon'
+
+          echo "Pinging $URL..."
+          
+          # -s (silent), -L (follow redirects), -A (custom user-agent to avoid firewall blocks)
+          RESPONSE=$(curl -A "GitHubActions-MonitorBot" -s -L -o response.html -w "%{http_code}" "$URL")
+          
+          echo "HTTP Response Code: $RESPONSE"
+
+          # Step 1: Check for HTTP 200
+          if [ "$RESPONSE" -ne 200 ]; then
+            echo "::error::Site down! Expected HTTP 200, got $RESPONSE"
+            exit 1
+          fi
+
+          # Step 2: Check for the exact h1 block element
+          # -F treats the pattern as a fixed string rather than a regular expression
+          if ! grep -Fq "$EXPECTED_STRING" response.html; then
+            echo "::error::Content mismatch! Could not find the expected blog title header."
+            exit 1
+          fi
+
+          echo "Everything looks healthy!"
